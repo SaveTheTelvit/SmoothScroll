@@ -3,18 +3,18 @@ extends Container
 
 class_name SmoothScroll
 
-enum Move { NULL, DRAG, RETURN }
-
 export var scroll: Vector2 = Vector2.ZERO setget _set_scroll
 export(float, 0.0, 1.0) var overscroll_power: float = 0.5 setget _set_overscroll_power
 export var horizontal_enabled: bool = true setget _set_horizontal
 export var vertical_enabled: bool = true setget _set_vertical
+export var overscrolling_horizontal: bool = true
+export var overscrolling_vertical: bool = true
 
 var drag_speed: Vector2 = Vector2.ZERO
 var last_accum: Vector2 = Vector2.ZERO
 var accum: Vector2 = Vector2.ZERO
 var await_time: float = 0.0
-var move: int = Move.NULL
+var move: bool = false
 
 var control: Control = null
 var control_size: Vector2 = Vector2.ZERO
@@ -39,17 +39,19 @@ func _set_vertical(value: bool) -> void:
 
 func add_to_scroll(value: Vector2) -> void:
 	var max_scroll: Vector2 = get_max_scroll()
-	scroll.x = get_new_scroll(scroll.x, value.x, max_scroll.x)
-	scroll.y = get_new_scroll(scroll.y, value.y, max_scroll.y)
+	scroll.x = get_new_scroll(scroll.x, value.x, max_scroll.x, overscrolling_horizontal)
+	scroll.y = get_new_scroll(scroll.y, value.y, max_scroll.y, overscrolling_vertical)
 	_update_children()
 
-func get_new_scroll(scroll: float, add_value: float, max_value: float) -> float:
+func get_new_scroll(scroll: float, add_value: float, max_value: float, overscroll: bool) -> float:
 	var new_scroll: float = scroll + add_value
 	if sign(new_scroll) == sign(add_value):
 		if new_scroll < 0.0:
-			new_scroll = -get_overscroll(-scroll, -add_value)
+			if !overscroll: return 0.0
+			return -get_overscroll(-scroll, -add_value)
 		elif new_scroll > max_value:
-			new_scroll = max_value + get_overscroll(scroll - max_value, add_value)
+			if !overscroll: return max_value
+			return max_value + get_overscroll(scroll - max_value, add_value)
 	return new_scroll
 
 func get_overscroll(current_overscroll: float, added: float) -> float:
@@ -79,7 +81,7 @@ func get_current_resist() -> Vector2:
 
 func get_resist_on_overscroll(overscroll: float) -> float:
 	if overscroll <= 1.0: return 1.0
-	return pow(overscroll, 1.0001)
+	return pow(overscroll * 0.1, 2)
 
 func _get_configuration_warning() -> String:
 	if control: return ""
@@ -114,11 +116,7 @@ func _gui_input(event: InputEvent) -> void:
 		if event.is_pressed():
 			_cancel_drag()
 			set_physics_process_internal(true)
-		else:
-			if drag_speed.length() > 0.0:
-				move = Move.DRAG
-			else:
-				_return()
+		else: move = true
 
 func _notification(what: int) -> void:
 	match what:
@@ -128,53 +126,55 @@ func _notification(what: int) -> void:
 			set_physics_process_internal(false)
 		NOTIFICATION_INTERNAL_PHYSICS_PROCESS:
 			var delta: float = get_physics_process_delta_time()
-			if move == Move.DRAG:
+			if move:
+				var current_overscroll: Vector2 = get_current_overscroll(true)
+				var move: Vector2 = Vector2(
+					_get_move(drag_speed.x, delta, current_overscroll.x),
+					_get_move(drag_speed.y, delta, current_overscroll.y)
+				)
+				if move.length() == 0.0:
+					_cancel_drag()
+					return
+				add_to_scroll(move)
 				var resist: Vector2 = get_current_resist()
-				var _sign_x: int = sign(drag_speed.x)
-				var _sign_y: int = sign(drag_speed.y)
-				var _val_x: float = abs(drag_speed.x) - 1000 * delta * resist.x
-				var _val_y: float = abs(drag_speed.y) - 1000 * delta * resist.y
-				if _val_x < 0: _val_x = 0.0
-				if _val_y < 0: _val_y = 0.0
-				add_to_scroll(drag_speed * delta)
-				drag_speed = Vector2(_val_x * _sign_x, _val_y * _sign_y)
-				if drag_speed.length() == 0.0: _return()
-			elif move == Move.RETURN:
-				await_time -= delta
-				if await_time <= 0.0:
-					var overscroll: Vector2 = get_current_overscroll(true)
-					var direction: Vector2 = -overscroll.normalized()
-					var move_value: Vector2 = direction * 1000 * delta
-					var result: Vector2 = overscroll.abs() - move_value.abs()
-					if result.x <= 0 && result.y <= 0:
-						_cancel_drag()
-						move_value = -overscroll
-					add_to_scroll(move_value)
+				drag_speed = Vector2(
+					_get_new_speed(drag_speed.x, 1000 * resist.x * delta),
+					_get_new_speed(drag_speed.y, 1000 * resist.y * delta)
+				)
 			else:
 				var diff : Vector2 = accum - last_accum
 				last_accum = accum
 				drag_speed = diff / delta
 
+func _get_new_speed(speed: float, dump: float) -> float:
+	var val_sign: float = sign(speed)
+	speed = abs(speed) - dump
+	if speed <= 0.0: return 0.0
+	return val_sign * speed
+
+func _get_move(speed: float, delta: float, overscroll: float) -> float:
+	if speed == 0.0:
+		if overscroll == 0.0: return 0.0
+		return _get_return_move(delta, overscroll)
+	return speed * delta
+
+func _get_return_move(delta: float, overscroll: float) -> float:
+	var value: float = 1000 * delta
+	if abs(overscroll) - value <= 0: return -overscroll
+	return sign(overscroll) * -value
+
 func _imitate_drag(value: Vector2) -> void:
-	drag_speed += Vector2(sign(value.x) * 1000, sign(value.y) * 1000) * 0.2
+	drag_speed += Vector2(sign(value.x) * 1000, sign(value.y) * 1000) * 0.4
 	if !horizontal_enabled: drag_speed.x = 0
 	if !vertical_enabled: drag_speed.y = 0
-	move = Move.DRAG
-	set_physics_process_internal(true)
-
-func _return() -> void:
-	accum = Vector2.ZERO
-	last_accum = Vector2.ZERO
-	drag_speed = Vector2.ZERO
-	await_time = 0.05
-	move = Move.RETURN
+	move = true
 	set_physics_process_internal(true)
 
 func _cancel_drag():
 	accum = Vector2.ZERO
 	last_accum = Vector2.ZERO
 	drag_speed = Vector2.ZERO
-	move = Move.NULL
+	move = false
 	set_physics_process_internal(false)
 
 func _update_children() -> void:
