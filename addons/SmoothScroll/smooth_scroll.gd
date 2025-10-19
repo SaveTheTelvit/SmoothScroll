@@ -83,6 +83,8 @@ func get_resist_on_overscroll(overscroll: float) -> float:
 	if overscroll <= 1.0: return 1.0
 	return pow(overscroll * 0.1, 2)
 
+func _clips_input() -> bool: return true
+
 func _get_configuration_warning() -> String:
 	if control: return ""
 	return "SmoothScroll is designed to work with a single child control.\n" + \
