@@ -1,6 +1,8 @@
 tool
 extends Container
 
+signal drag_started
+
 class_name SmoothScroll
 
 export var scroll: Vector2 = Vector2.ZERO setget _set_scroll
@@ -15,6 +17,7 @@ var last_accum: Vector2 = Vector2.ZERO
 var accum: Vector2 = Vector2.ZERO
 var await_time: float = 0.0
 var move: bool = false
+var dragging: bool = false
 
 var control: Control = null
 var control_size: Vector2 = Vector2.ZERO
@@ -58,6 +61,7 @@ func get_overscroll(current_overscroll: float, added: float) -> float:
 	if current_overscroll < 0:
 		current_overscroll = 0.0
 		added += current_overscroll
+	if overscroll_power == 0.0: return 0.0
 	return pow(pow(current_overscroll, root_power) + added, overscroll_power)
 
 func get_current_overscroll(signed: bool = false) -> Vector2:
@@ -81,7 +85,7 @@ func get_current_resist() -> Vector2:
 
 func get_resist_on_overscroll(overscroll: float) -> float:
 	if overscroll <= 1.0: return 1.0
-	return pow(overscroll * 0.1, 2)
+	return pow(overscroll * (1 - overscroll_power), 2)
 
 func _clips_input() -> bool: return true
 
@@ -109,6 +113,10 @@ func _gui_input(event: InputEvent) -> void:
 			BUTTON_WHEEL_RIGHT:
 				_imitate_drag(Vector2(get_avaible_space().x / 8 * event.factor, 0))
 	elif event is InputEventScreenDrag:
+		if !dragging:
+			if event.relative.length() < 1.0: return
+			dragging = true
+			emit_signal("drag_started")
 		var move_value = -event.relative
 		if !horizontal_enabled: move_value.x = 0
 		if !vertical_enabled: move_value.y = 0
@@ -122,7 +130,13 @@ func _gui_input(event: InputEvent) -> void:
 
 func _notification(what: int) -> void:
 	match what:
-		NOTIFICATION_SORT_CHILDREN: _update_children()
+		NOTIFICATION_RESIZED:
+			var max_scroll: Vector2 = get_max_scroll()
+			if scroll.x > max_scroll.x: scroll.x = max_scroll.x
+			if scroll.y > max_scroll.y: scroll.y = max_scroll.y
+			_set_scroll(scroll)
+		NOTIFICATION_SORT_CHILDREN: 
+			_update_children()
 		NOTIFICATION_READY: 
 			rect_clip_content = true
 			set_physics_process_internal(false)
@@ -161,7 +175,7 @@ func _get_move(speed: float, delta: float, overscroll: float) -> float:
 	return speed * delta
 
 func _get_return_move(delta: float, overscroll: float) -> float:
-	var value: float = 1000 * delta
+	var value: float = 10 * delta * max(abs(overscroll), 1)
 	if abs(overscroll) - value <= 0: return -overscroll
 	return sign(overscroll) * -value
 
@@ -176,6 +190,7 @@ func _cancel_drag():
 	accum = Vector2.ZERO
 	last_accum = Vector2.ZERO
 	drag_speed = Vector2.ZERO
+	dragging = false
 	move = false
 	set_physics_process_internal(false)
 
@@ -201,7 +216,10 @@ func get_container() -> Node:
 	return get_child(0)
 
 func get_max_scroll() -> Vector2:
-	return control_size - get_avaible_space()
+	var value: Vector2 = control_size - get_avaible_space()
+	if value.x < 0.0: value.x = 0.0
+	if value.y < 0.0: value.y = 0.0
+	return value
 
 func get_avaible_space() -> Vector2:
 	return rect_size
