@@ -130,13 +130,10 @@ func _gui_input(event: InputEvent) -> void:
 
 func _notification(what: int) -> void:
 	match what:
-		NOTIFICATION_RESIZED:
-			var max_scroll: Vector2 = get_max_scroll()
-			if scroll.x > max_scroll.x: scroll.x = max_scroll.x
-			if scroll.y > max_scroll.y: scroll.y = max_scroll.y
-			_set_scroll(scroll)
 		NOTIFICATION_SORT_CHILDREN: 
 			_update_children()
+			set_physics_process_internal(true)
+			move = true
 		NOTIFICATION_READY: 
 			rect_clip_content = true
 			set_physics_process_internal(false)
