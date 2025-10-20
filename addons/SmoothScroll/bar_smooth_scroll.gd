@@ -1,7 +1,5 @@
 tool
-extends SmoothScroll
-
-class_name BarSmoothScroll
+extends "res://addons/SmoothScroll/smooth_scroll.gd"
 
 var h_scrollbar: HScrollBar = HScrollBar.new()
 var v_scrollbar: VScrollBar = VScrollBar.new()

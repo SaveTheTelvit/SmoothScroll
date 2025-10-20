@@ -3,8 +3,6 @@ extends Container
 
 signal drag_started
 
-class_name SmoothScroll
-
 export var scroll: Vector2 = Vector2.ZERO setget _set_scroll
 export(float, 0.0, 1.0) var overscroll_power: float = 0.5 setget _set_overscroll_power
 export var horizontal_enabled: bool = true setget _set_horizontal
