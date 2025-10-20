@@ -114,7 +114,7 @@ func _gui_input(event: InputEvent) -> void:
 				_imitate_drag(Vector2(get_avaible_space().x / 8 * event.factor, 0))
 	elif event is InputEventScreenDrag:
 		if !dragging:
-			if event.relative.length() < 1.0: return
+			if event.relative.length() < 2.5: return
 			dragging = true
 			emit_signal("drag_started")
 		var move_value = -event.relative
@@ -180,7 +180,10 @@ func _get_return_move(delta: float, overscroll: float) -> float:
 	return sign(overscroll) * -value
 
 func _imitate_drag(value: Vector2) -> void:
-	drag_speed += Vector2(sign(value.x) * 1000, sign(value.y) * 1000) * 0.4
+	drag_speed += Vector2(
+		sign(value.x) * sqrt(2000 * abs(value.x)), 
+		sign(value.y) * sqrt(2000 * abs(value.y))
+	)
 	if !horizontal_enabled: drag_speed.x = 0
 	if !vertical_enabled: drag_speed.y = 0
 	move = true
