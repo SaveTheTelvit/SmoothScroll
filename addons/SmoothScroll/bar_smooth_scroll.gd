@@ -21,6 +21,11 @@ func _notification(what: int) -> void:
 		add_child(h_scrollbar)
 		add_child(v_scrollbar)
 
+func get_avaible_space() -> Vector2:
+	return rect_size - Vector2(
+		get_scrollbar_min_size(v_scrollbar).x, get_scrollbar_min_size(h_scrollbar).y
+	)
+
 func get_container() -> Node:
 	for child in get_children():
 		if child == h_scrollbar || child == v_scrollbar:
@@ -34,16 +39,17 @@ func _update_children() -> void:
 
 func _update_scrollbars() -> void:
 	if h_scrollbar.get_parent() != self || v_scrollbar.get_parent() != self: return
-	h_scrollbar.visible = horizontal_enabled && control_size.x > rect_size.x
-	v_scrollbar.visible = vertical_enabled && control_size.y > rect_size.y
+	var avaible: Vector2 = get_avaible_space()
+	h_scrollbar.visible = horizontal_enabled && control_size.x > avaible.x
+	v_scrollbar.visible = vertical_enabled && control_size.y > avaible.y
 	var h_size: Vector2 = get_scrollbar_min_size(h_scrollbar)
 	var v_size: Vector2 = get_scrollbar_min_size(v_scrollbar)
+	h_scrollbar.max_value = control_size.x + v_size.x
+	v_scrollbar.max_value = control_size.y + h_size.x
 	h_size.x = rect_size.x - v_size.x
 	v_size.y = rect_size.y - h_size.y
 	var h_pos: Vector2 = Vector2(0, rect_size.y - h_size.y)
 	var v_pos: Vector2 = Vector2(rect_size.x - v_size.x, 0)
-	h_scrollbar.max_value = control_size.x
-	v_scrollbar.max_value = control_size.y
 	h_scrollbar.value = scroll.x
 	v_scrollbar.value = scroll.y
 	h_scrollbar.page = rect_size.x

@@ -4,7 +4,7 @@ extends Container
 signal drag_started
 
 export var scroll: Vector2 = Vector2.ZERO setget _set_scroll
-export(float, 0.0, 1.0) var overscroll_power: float = 0.5 setget _set_overscroll_power
+export(float, 0.0, 1.0) var overscroll_smoothness: float = 0.5 setget _set_overscroll_power
 export var horizontal_enabled: bool = true setget _set_horizontal
 export var vertical_enabled: bool = true setget _set_vertical
 export var overscrolling_horizontal: bool = true
@@ -13,7 +13,6 @@ export var overscrolling_vertical: bool = true
 var drag_speed: Vector2 = Vector2.ZERO
 var last_accum: Vector2 = Vector2.ZERO
 var accum: Vector2 = Vector2.ZERO
-var await_time: float = 0.0
 var move: bool = false
 var dragging: bool = false
 
@@ -26,7 +25,7 @@ func _set_scroll(value: Vector2) -> void:
 	_update_children()
 
 func _set_overscroll_power(value: float) -> void:
-	overscroll_power = value
+	overscroll_smoothness = value
 	if value > 0: root_power = 1 / value
 	else: root_power = 1
 
@@ -59,8 +58,8 @@ func get_overscroll(current_overscroll: float, added: float) -> float:
 	if current_overscroll < 0:
 		current_overscroll = 0.0
 		added += current_overscroll
-	if overscroll_power == 0.0: return 0.0
-	return pow(pow(current_overscroll, root_power) + added, overscroll_power)
+	if overscroll_smoothness == 0.0: return 0.0
+	return pow(pow(current_overscroll, root_power) + added, overscroll_smoothness)
 
 func get_current_overscroll(signed: bool = false) -> Vector2:
 	var max_scroll: Vector2 = get_max_scroll()
@@ -82,8 +81,8 @@ func get_current_resist() -> Vector2:
 	return Vector2(get_resist_on_overscroll(overscroll.x), get_resist_on_overscroll(overscroll.y))
 
 func get_resist_on_overscroll(overscroll: float) -> float:
-	if overscroll <= 1.0: return 1.0
-	return pow(overscroll * (1 - overscroll_power), 2)
+	if overscroll <= 1.0 || overscroll_smoothness == 1.0: return 1.0
+	return pow(overscroll, root_power) * (1 - overscroll_smoothness)
 
 func _clips_input() -> bool: return true
 
@@ -223,7 +222,7 @@ func get_avaible_space() -> Vector2:
 	return rect_size
 
 func get_child_rect(child: Control) -> Rect2:
-	var avaible_space: Vector2 = rect_size
+	var avaible_space: Vector2 = get_avaible_space()
 	child.rect_size = Vector2(
 		get_size_on_flag(child.size_flags_horizontal, avaible_space.x),
 		get_size_on_flag(child.size_flags_vertical, avaible_space.y)
