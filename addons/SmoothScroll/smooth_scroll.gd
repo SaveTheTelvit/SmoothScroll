@@ -146,7 +146,7 @@ func _notification(what: int) -> void:
 				State.ACCELERATION:
 					acceleration_internal_process(delta)
 				State.INTERPOLATION:
-					acceleration_internal_process(delta)
+					if drag_speed == Vector2.ZERO: acceleration_internal_process(delta)
 					move_internal_process(delta)
 					state = State.MOVE
 
