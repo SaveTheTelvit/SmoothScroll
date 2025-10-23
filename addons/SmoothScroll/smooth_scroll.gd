@@ -3,6 +3,8 @@ extends Container
 
 signal drag_started
 
+enum State {MOVE, ACCELERATION, INTERPOLATION, NULL}
+
 export var scroll: Vector2 = Vector2.ZERO setget _set_scroll
 export(float, 0.0, 1.0) var overscroll_smoothness: float = 0.5 setget _set_overscroll_power
 export var horizontal_enabled: bool = true setget _set_horizontal
@@ -13,7 +15,8 @@ export var overscrolling_vertical: bool = true
 var drag_speed: Vector2 = Vector2.ZERO
 var last_accum: Vector2 = Vector2.ZERO
 var accum: Vector2 = Vector2.ZERO
-var move: bool = false
+var time_since_motion: float = 0.0
+var state: int = State.NULL
 var dragging: bool = false
 
 var control: Control = null
@@ -122,39 +125,52 @@ func _gui_input(event: InputEvent) -> void:
 	elif event is InputEventScreenTouch:
 		if event.is_pressed():
 			_cancel_drag()
-			set_physics_process_internal(true)
-		else: move = true
+			set_process_internal(true)
+		else: state = State.INTERPOLATION
 
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_SORT_CHILDREN: 
 			_update_children()
-			set_physics_process_internal(true)
-			move = true
+			set_process_internal(true)
+			state = State.MOVE
 		NOTIFICATION_READY: 
 			rect_clip_content = true
-			set_physics_process_internal(false)
-		NOTIFICATION_INTERNAL_PHYSICS_PROCESS:
-			var delta: float = get_physics_process_delta_time()
-			if move:
-				var current_overscroll: Vector2 = get_current_overscroll(true)
-				var move: Vector2 = Vector2(
-					_get_move(drag_speed.x, delta, current_overscroll.x),
-					_get_move(drag_speed.y, delta, current_overscroll.y)
-				)
-				if move.length() == 0.0:
-					_cancel_drag()
-					return
-				add_to_scroll(move)
-				var resist: Vector2 = get_current_resist()
-				drag_speed = Vector2(
-					_get_new_speed(drag_speed.x, 1000 * resist.x * delta),
-					_get_new_speed(drag_speed.y, 1000 * resist.y * delta)
-				)
-			else:
-				var diff : Vector2 = accum - last_accum
-				last_accum = accum
-				drag_speed = diff / delta
+			set_process_internal(false)
+		NOTIFICATION_INTERNAL_PROCESS:
+			var delta: float = get_process_delta_time()
+			match state:
+				State.MOVE:
+					move_internal_process(delta)
+				State.ACCELERATION:
+					acceleration_internal_process(delta)
+				State.INTERPOLATION:
+					acceleration_internal_process(delta)
+					move_internal_process(delta)
+					state = State.MOVE
+
+func move_internal_process(delta: float) -> void:
+	var current_overscroll: Vector2 = get_current_overscroll(true)
+	var move: Vector2 = Vector2(
+		_get_move(drag_speed.x, delta, current_overscroll.x),
+		_get_move(drag_speed.y, delta, current_overscroll.y)
+	)
+	if move.length() == 0.0:
+		_cancel_drag()
+		return
+	add_to_scroll(move)
+	var resist: Vector2 = get_current_resist()
+	drag_speed = Vector2(
+		_get_new_speed(drag_speed.x, 1000 * resist.x * delta),
+		_get_new_speed(drag_speed.y, 1000 * resist.y * delta)
+	)
+
+func acceleration_internal_process(delta: float) -> void:
+	if time_since_motion == 0.0 || time_since_motion > 0.1:
+		var diff : Vector2 = accum - last_accum
+		last_accum = accum
+		drag_speed = diff / delta
+	time_since_motion += delta
 
 func _get_new_speed(speed: float, dump: float) -> float:
 	var val_sign: float = sign(speed)
@@ -180,16 +196,17 @@ func _imitate_drag(value: Vector2) -> void:
 	)
 	if !horizontal_enabled: drag_speed.x = 0
 	if !vertical_enabled: drag_speed.y = 0
-	move = true
-	set_physics_process_internal(true)
+	state = State.MOVE
+	set_process_internal(true)
 
 func _cancel_drag():
 	accum = Vector2.ZERO
 	last_accum = Vector2.ZERO
 	drag_speed = Vector2.ZERO
+	time_since_motion = 0.0
 	dragging = false
-	move = false
-	set_physics_process_internal(false)
+	state = State.NULL
+	set_process_internal(false)
 
 func _update_children() -> void:
 	if get_child_count() == 0: 
