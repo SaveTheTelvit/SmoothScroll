@@ -126,6 +126,7 @@ func _gui_input(event: InputEvent) -> void:
 		if event.is_pressed():
 			_cancel_drag()
 			set_process_internal(true)
+			state = State.ACCELERATION
 		else: state = State.INTERPOLATION
 
 func _notification(what: int) -> void:
