@@ -15,7 +15,6 @@ export var overscrolling_vertical: bool = true
 var drag_speed: Vector2 = Vector2.ZERO
 var last_accum: Vector2 = Vector2.ZERO
 var accum: Vector2 = Vector2.ZERO
-var time_since_motion: float = 0.0
 var state: int = State.NULL
 var dragging: bool = false
 
@@ -146,7 +145,8 @@ func _notification(what: int) -> void:
 				State.ACCELERATION:
 					acceleration_internal_process(delta)
 				State.INTERPOLATION:
-					if drag_speed == Vector2.ZERO: acceleration_internal_process(delta)
+					if drag_speed == Vector2.ZERO: 
+						acceleration_internal_process(delta)
 					move_internal_process(delta)
 					state = State.MOVE
 
@@ -167,11 +167,9 @@ func move_internal_process(delta: float) -> void:
 	)
 
 func acceleration_internal_process(delta: float) -> void:
-	if time_since_motion == 0.0 || time_since_motion > 0.1:
-		var diff : Vector2 = accum - last_accum
-		last_accum = accum
-		drag_speed = diff / delta
-	time_since_motion += delta
+	var diff : Vector2 = accum - last_accum
+	last_accum = accum
+	drag_speed = diff / delta
 
 func _get_new_speed(speed: float, dump: float) -> float:
 	var val_sign: float = sign(speed)
@@ -204,7 +202,6 @@ func _cancel_drag():
 	accum = Vector2.ZERO
 	last_accum = Vector2.ZERO
 	drag_speed = Vector2.ZERO
-	time_since_motion = 0.0
 	dragging = false
 	state = State.NULL
 	set_process_internal(false)
