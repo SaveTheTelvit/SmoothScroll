@@ -124,7 +124,7 @@ func _gui_input(event: InputEvent) -> void:
 	elif event is InputEventScreenTouch:
 		if event.is_pressed():
 			_cancel_drag()
-			set_process_internal(true)
+			set_physics_process_internal(true)
 			state = State.ACCELERATION
 		else: state = State.INTERPOLATION
 
@@ -132,13 +132,13 @@ func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_SORT_CHILDREN: 
 			_update_children()
-			set_process_internal(true)
+			set_physics_process_internal(true)
 			state = State.MOVE
 		NOTIFICATION_READY: 
 			rect_clip_content = true
-			set_process_internal(false)
-		NOTIFICATION_INTERNAL_PROCESS:
-			var delta: float = get_process_delta_time()
+			set_physics_process_internal(false)
+		NOTIFICATION_INTERNAL_PHYSICS_PROCESS:
+			var delta: float = get_physics_process_delta_time()
 			match state:
 				State.MOVE:
 					move_internal_process(delta)
@@ -196,7 +196,7 @@ func _imitate_drag(value: Vector2) -> void:
 	if !horizontal_enabled: drag_speed.x = 0
 	if !vertical_enabled: drag_speed.y = 0
 	state = State.MOVE
-	set_process_internal(true)
+	set_physics_process_internal(true)
 
 func _cancel_drag():
 	accum = Vector2.ZERO
@@ -204,7 +204,7 @@ func _cancel_drag():
 	drag_speed = Vector2.ZERO
 	dragging = false
 	state = State.NULL
-	set_process_internal(false)
+	set_physics_process_internal(false)
 
 func _update_children() -> void:
 	if get_child_count() == 0: 
