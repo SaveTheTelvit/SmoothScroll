@@ -50,33 +50,32 @@ func get_new_scroll(scroll: float, add_value: float, max_value: float, overscrol
 	if sign(new_scroll) == sign(add_value):
 		if new_scroll < 0.0:
 			if !overscroll: return 0.0
-			return -get_overscroll(-scroll, -add_value)
+			return -get_new_overscroll(-scroll, -add_value)
 		elif new_scroll > max_value:
 			if !overscroll: return max_value
-			return max_value + get_overscroll(scroll - max_value, add_value)
+			return max_value + get_new_overscroll(scroll - max_value, add_value)
 	return new_scroll
 
-func get_overscroll(current_overscroll: float, added: float) -> float:
+func get_new_overscroll(current_overscroll: float, added: float) -> float:
 	if current_overscroll < 0:
-		current_overscroll = 0.0
 		added += current_overscroll
+		current_overscroll = 0.0
 	if overscroll_smoothness == 0.0: return 0.0
 	return pow(pow(current_overscroll, root_power) + added, overscroll_smoothness)
 
 func get_current_overscroll(signed: bool = false) -> Vector2:
 	var max_scroll: Vector2 = get_max_scroll()
-	var overscroll: Vector2 = Vector2.ZERO
-	if scroll.x < 0.0:
-		if signed: overscroll.x = scroll.x
-		else: overscroll.x = -scroll.x
-	elif scroll.x > max_scroll.x:
-		overscroll.x = scroll.x - max_scroll.x
-	if scroll.y < 0.0:
-		if signed: overscroll.y = scroll.y
-		else: overscroll.y = -scroll.y
-	elif scroll.y > max_scroll.y:
-		overscroll.y = scroll.y - max_scroll.y
-	return overscroll
+	return Vector2(
+		get_axis_overscroll(scroll.x, max_scroll.x, signed),
+		get_axis_overscroll(scroll.y, max_scroll.y, signed)
+	)
+
+func get_axis_overscroll(scroll: float, max_scroll: float, signed: float) -> float:
+	if scroll < 0.0:
+		return scroll if signed else -scroll
+	elif scroll > max_scroll:
+		return scroll - max_scroll
+	return 0.0
 
 func get_current_resist() -> Vector2:
 	var overscroll: Vector2 = get_current_overscroll()
